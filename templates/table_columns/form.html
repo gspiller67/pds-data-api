@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}{{ "Edit" if column else "Create" }} Table Column{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ "Edit" if column else "Create" }} Table Column</h2>
+    <a href="/table-columns" class="btn btn-secondary">Back to List</a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="pds_table_id" class="form-label">PDS Table</label>
+                <select class="form-select" id="pds_table_id" name="pds_table_id" required>
+                    <option value="">Select a PDS table...</option>
+                    {% for table in tables %}
+                        <option value="{{ table.id }}" {{ 'selected' if column and column.pds_table_id == table.id else '' }}>
+                            {{ table.table_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="column_name" class="form-label">Column Name</label>
+                <input type="text" class="form-control" id="column_name" name="column_name" value="{{ column.column_name if column else '' }}" required>
+            </div>
+            
+            <div class="mb-3">
+                <label for="data_type" class="form-label">Data Type</label>
+                <select class="form-select" id="data_type" name="data_type" required>
+                    <option value="">Select a data type...</option>
+                    <option value="string" {{ 'selected' if column and column.data_type == 'string' else '' }}>String</option>
+                    <option value="integer" {{ 'selected' if column and column.data_type == 'integer' else '' }}>Integer</option>
+                    <option value="float" {{ 'selected' if column and column.data_type == 'float' else '' }}>Float</option>
+                    <option value="boolean" {{ 'selected' if column and column.data_type == 'boolean' else '' }}>Boolean</option>
+                    <option value="date" {{ 'selected' if column and column.data_type == 'date' else '' }}>Date</option>
+                    <option value="datetime" {{ 'selected' if column and column.data_type == 'datetime' else '' }}>DateTime</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="active" name="active" value="true" {{ 'checked' if column and column.active else '' }}>
+                    <label class="form-check-label" for="active">Active</label>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">{{ "Update" if column else "Create" }} Table Column</button>
+        </form>
+    </div>
+</div>
+{% endblock %} 

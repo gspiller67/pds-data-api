@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Table Columns{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Table Columns</h2>
+    <a href="/table-columns/create" class="btn btn-primary">Create Table Column</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>PDS Table</th>
+                <th>Column Name</th>
+                <th>Data Type</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for column in columns %}
+            <tr>
+                <td>{{ column.pds_table.table_name if column.pds_table else 'N/A' }}</td>
+                <td>{{ column.column_name }}</td>
+                <td>{{ column.data_type }}</td>
+                <td>{{ "Active" if column.active else "Inactive" }}</td>
+                <td>
+                    <a href="/table-columns/{{ column.id }}/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <form action="/table-columns/{{ column.id }}/delete" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure?')">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center">No table columns found</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %} 

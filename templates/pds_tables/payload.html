@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ table.table_name }} - Payload{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ table.table_name }} - Payload</h2>
+    <div>
+        <a href="/pds-tables/{{ table.id }}/columns" class="btn btn-secondary">Back to Columns</a>
+    </div>
+</div>
+
+<div class="alert alert-info mb-4">
+    <h4 class="alert-heading">Payload Information</h4>
+    <p>This is the JSON payload that will be used for the PDS sync process. It includes:</p>
+    <ul>
+        <li>Table configuration</li>
+        <li>Source connection details</li>
+        <li>Destination connection details</li>
+        <li>Active columns configuration</li>
+    </ul>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">JSON Payload</h5>
+    </div>
+    <div class="card-body">
+        <pre class="bg-light p-3 rounded"><code>{{ payload }}</code></pre>
+    </div>
+</div>
+
+<div class="mt-4">
+    <div class="btn-group" role="group">
+        <a href="/pds-tables/{{ table.id }}/sync" class="btn btn-primary">Sync Data</a>
+        <a href="/pds-tables/{{ table.id }}/columns" class="btn btn-secondary">Back to Columns</a>
+    </div>
+</div>
+{% endblock %} 

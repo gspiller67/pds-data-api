@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-diagram-3"></i>
+                    Connections
+                </h5>
+                <p class="card-text">Manage your database and API connections. Configure PDS and PostgreSQL connections here.</p>
+                <div class="mt-3">
+                    <a href="/connections" class="btn btn-primary">View Connections</a>
+                    <a href="/connections/create" class="btn btn-outline-primary">Add New</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-table"></i>
+                    PDS Tables
+                </h5>
+                <p class="card-text">Configure your PDS table mappings and manage data synchronization between systems.</p>
+                <div class="mt-3">
+                    <a href="/pds-tables" class="btn btn-primary">View Tables</a>
+                    <a href="/pds-tables/create" class="btn btn-outline-primary">Add New</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-grid-3x3"></i>
+                    Quick Actions
+                </h5>
+                <p class="card-text">Common tasks and operations you can perform.</p>
+                <div class="d-grid gap-2 mt-3">
+                    <a href="/connections/create" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle"></i> New Connection
+                    </a>
+                    <a href="/pds-tables/create" class="btn btn-outline-success">
+                        <i class="bi bi-plus-circle"></i> New PDS Table
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Getting Started</h5>
+            </div>
+            <div class="card-body">
+                <ol class="mb-0">
+                    <li class="mb-2">Create a <strong>PDS Connection</strong> with your Primavera Unifier credentials</li>
+                    <li class="mb-2">Create a <strong>PostgreSQL Connection</strong> for your destination database</li>
+                    <li class="mb-2">Create a <strong>PDS Table</strong> and configure which columns to sync</li>
+                    <li class="mb-2">Use the <strong>Test Connection</strong> feature to verify your setup</li>
+                    <li>Start syncing data between systems!</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
