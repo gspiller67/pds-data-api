@@ -88,7 +88,7 @@ class PDSSyncService:
                 'PDS': ['url', 'username', 'password'],
                 'PostgreSQL': ['host', 'port', 'database', 'username', 'password'],
                 'Oracle': ['host', 'port', 'service_name', 'username', 'password'],
-                'Qdrant': ['host', 'port', 'api_key', 'batch_size']
+                'Qdrant': ['host', 'port', 'api_key', 'batch_size', 'https']
             }
             
             # Get connection type
@@ -144,24 +144,14 @@ class PDSSyncService:
             api_key = self.dest_config.get('api_key')
             logger.info(f"Extracted api_key: {'*' * len(api_key) if api_key else None}")
             
-            # Construct URL with http:// scheme
-            url = f"http://{host}:{port}"
-            logger.info(f"Constructed URL: {url}")
-            
-            # Log the exact parameters being passed to QdrantClient
-            client_params = {
-                'url': url,
-                'api_key': api_key,
-                'timeout': 300  # Increased timeout to 5 minutes
-            }
-            logger.info(f"Parameters being passed to QdrantClient: {json.dumps(client_params, default=str)}")
-            
-            # Initialize with URL and API key only
+            # Initialize with host and port
             logger.info("Attempting to initialize QdrantClient...")
             self.qdrant_client = QdrantClient(
-                url=url,
+                host=host,
+                port=port,
                 api_key=api_key,
-                timeout=300  # Increased timeout to 5 minutes
+                timeout=300,  # Increased timeout to 5 minutes
+                https=self.dest_config.get('https', False)  # Use https value from config, default to False
             )
             logger.info("QdrantClient initialized successfully")
             
@@ -337,40 +327,26 @@ class PDSSyncService:
         """Ensure Qdrant collection exists."""
         try:
             logger.info(f"Checking if collection '{collection_name}' exists...")
-            try:
-                # Try to get collection info
-                self.qdrant_client.get_collection(collection_name)
+            
+            # First check if collection exists in the list of collections
+            collections = self.qdrant_client.get_collections()
+            collection_exists = any(collection.name == collection_name for collection in collections.collections)
+            
+            if collection_exists:
                 logger.info(f"Collection '{collection_name}' exists")
                 return
-            except Exception as e:
-                error_str = str(e)
-                logger.info(f"Collection check error: {error_str}")
-                
-                # Check if collection already exists
-                if "already exists" in error_str:
-                    logger.info(f"Collection '{collection_name}' already exists")
-                    return
-                
-                # Check if collection not found
-                if "Not found" in error_str or "validation" in error_str.lower():
-                    logger.info(f"Creating collection '{collection_name}'...")
-                    try:
-                        self.qdrant_client.create_collection(
-                            collection_name=collection_name,
-                            vectors_config=models.VectorParams(
-                                size=1536,  # OpenAI embedding size
-                                distance=models.Distance.COSINE
-                            )
-                        )
-                        logger.info(f"Collection '{collection_name}' created successfully")
-                    except Exception as create_error:
-                        if "already exists" in str(create_error):
-                            logger.info(f"Collection '{collection_name}' already exists (from create)")
-                            return
-                        raise
-                else:
-                    logger.error(f"Error checking collection: {error_str}")
-                    raise
+            
+            # If collection doesn't exist, create it using recreate_collection
+            logger.info(f"Creating collection '{collection_name}'...")
+            self.qdrant_client.recreate_collection(
+                collection_name=collection_name,
+                vectors_config=models.VectorParams(
+                    size=1536,  # OpenAI embedding size
+                    distance=models.Distance.COSINE
+                )
+            )
+            logger.info(f"Collection '{collection_name}' created successfully")
+            
         except Exception as e:
             logger.error(f"Error in _ensure_qdrant_collection: {str(e)}")
             logger.error(f"Error type: {type(e)}")

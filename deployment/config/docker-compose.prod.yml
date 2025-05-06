@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  pds_api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://pdsapi:${DB_PASSWORD}@db:5432/pds_data_api
+      - PDS_HOST=0.0.0.0
+      - PDS_PORT=8000
+      - SECRET_KEY=${SECRET_KEY}
+      - WORKERS=4
+      - LOG_LEVEL=WARNING
+      - LOG_FILE=/app/logs/pds_data_api.log
+      - SECRETS_PATH=/app/config/secrets.json
+    volumes:
+      - pds_logs:/app/logs
+      - pds_secrets:/app/config
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - pds_network
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=pdsapi
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=pds_data_api
+    volumes:
+      - pds_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pdsapi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - pds_network
+
+volumes:
+  pds_data:
+  pds_logs:
+  pds_secrets:
+
+networks:
+  pds_network:
+    driver: bridge 
