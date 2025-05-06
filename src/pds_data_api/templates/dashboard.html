@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <!-- Quick Stats -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">PDS Tables</h5>
+                    <p class="card-text h2 mb-3">{{ total_configs }}</p>
+                    <a href="/pds-tables" class="btn btn-primary">View Tables</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Connections</h5>
+                    <p class="card-text h2 mb-3">{{ total_connections }}</p>
+                    <a href="/connections" class="btn btn-primary">View Connections</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Recent Syncs</h5>
+                    <p class="card-text h2 mb-3">{{ recent_syncs|length }}</p>
+                    <a href="/sync-history" class="btn btn-primary">View History</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Actions -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="bi bi-diagram-3"></i>
+                        Connections
+                    </h5>
+                    <p class="card-text mb-4">Manage your database and API connections. Configure PDS and PostgreSQL connections here.</p>
+                    <div class="d-flex gap-2">
+                        <a href="/connections" class="btn btn-primary">View Connections</a>
+                        <a href="/connections/new" class="btn btn-outline-primary">Add New</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="bi bi-table"></i>
+                        PDS Tables
+                    </h5>
+                    <p class="card-text mb-4">Configure your PDS table mappings and manage data synchronization between systems.</p>
+                    <div class="d-flex gap-2">
+                        <a href="/pds-tables" class="btn btn-primary">View Tables</a>
+                        <a href="/pds-tables/new" class="btn btn-outline-primary">Add New</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="bi bi-grid-3x3"></i>
+                        Quick Actions
+                    </h5>
+                    <p class="card-text mb-4">Common tasks and operations you can perform.</p>
+                    <div class="d-grid gap-2">
+                        <a href="/connections/new" class="btn btn-outline-primary">
+                            <i class="bi bi-plus-circle"></i> New Connection
+                        </a>
+                        <a href="/pds-tables/new" class="btn btn-outline-success">
+                            <i class="bi bi-plus-circle"></i> New PDS Table
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Getting Started -->
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header py-3">
+                    <h5 class="card-title mb-0">Getting Started</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li class="mb-3">Create a <strong>PDS Connection</strong> with your Primavera Unifier credentials</li>
+                        <li class="mb-3">Create a <strong>PostgreSQL Connection</strong> for your destination database</li>
+                        <li class="mb-3">Create a <strong>PDS Table</strong> and configure which columns to sync</li>
+                        <li class="mb-3">Use the <strong>Test Connection</strong> feature to verify your setup</li>
+                        <li>Start syncing data between systems!</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

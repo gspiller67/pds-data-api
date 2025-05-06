@@ -1,9 +1,14 @@
+# Git
+.git
+.gitignore
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+env/
 build/
 develop-eggs/
 dist/
@@ -22,7 +27,6 @@ wheels/
 
 # Virtual Environment
 venv/
-venv_new/
 ENV/
 
 # IDE
@@ -33,25 +37,29 @@ ENV/
 
 # Logs
 *.log
+
+# Local development
+.env
+.env.local
+*.db
+data/
 logs/
 
-# Database
-*.db
-*.sqlite3
-postgres_data/
-qdrant_data/
-
 # Docker
-.docker/
+Dockerfile
+docker-compose.yml
+.dockerignore
 
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Documentation
+docs/
+*.md
+!README.md
 
-# Project specific
-secrets.json 
+# Tests
+tests/
+test_*.py
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store 

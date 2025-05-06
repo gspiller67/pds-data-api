@@ -1,102 +1,93 @@
-# PDS Data API
+# PDS Data API - Production Deployment
 
-A FastAPI-based REST API application for managing PDS data.
+## Overview
+PDS Data API is a FastAPI-based application for managing and syncing PDS (Product Data Service) tables. This document provides instructions for deploying the application in a production environment.
 
-## Features
-
-- RESTful API endpoints for CRUD operations
-- FastAPI with automatic OpenAPI documentation
-- Pydantic models for request/response validation
-- Async support
-- Development server with auto-reload
-
-## Requirements
-
-- Python 3.7+
-- FastAPI
-- Uvicorn
-- Pydantic
-- python-dotenv
+## System Requirements
+- Python 3.9 or higher
+- SQLite 3.x
+- 2GB RAM minimum
+- 1GB free disk space
 
 ## Installation
 
-1. Clone this repository:
-```bash
-git clone <repository-url>
-cd pds-data-api
-```
-
-2. Create a virtual environment (recommended):
+1. Create a virtual environment:
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. Install dependencies:
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Running the Application
-
-To start the development server:
-
-```bash
-python main.py
+3. Set up environment variables in `.env`:
+```env
+DATABASE_URL=sqlite:///pds_data.db
+PDS_HOST=127.0.0.1
+PDS_PORT=8000
+LOG_LEVEL=WARNING
+SECRET_KEY=your-secure-secret-key
 ```
 
-Or alternatively:
-
+4. Initialize the database:
 ```bash
-uvicorn main:app --reload
+python init_db.py
 ```
 
-The API will be available at `http://localhost:8000`
+## Running in Production
 
-## API Documentation
-
-Once the application is running, you can access:
-
-- Interactive API documentation (Swagger UI): `http://localhost:8000/docs`
-- Alternative API documentation (ReDoc): `http://localhost:8000/redoc`
-
-## API Endpoints
-
-- `GET /`: Root endpoint, returns API information
-- `GET /items`: Get all items
-- `GET /items/{item_id}`: Get a specific item by ID
-- `POST /items`: Create a new item
-- `PUT /items/{item_id}`: Update an existing item
-- `DELETE /items/{item_id}`: Delete an item
-
-## Example Usage
-
-### Creating a new item
-
+1. Start the application:
 ```bash
-curl -X POST "http://localhost:8000/items" \
-     -H "Content-Type: application/json" \
-     -d '{"id": 1, "name": "Test Item", "description": "This is a test item", "price": 29.99}'
+uvicorn pds_data_api.main:app --host 127.0.0.1 --port 8000 --workers 4
 ```
 
-### Getting all items
+2. Access the application at `http://127.0.0.1:8000`
 
+## Security Considerations
+
+1. The application defaults to localhost-only access
+2. All passwords and sensitive data are encrypted
+3. Production logging is set to WARNING level
+4. Database file permissions should be restricted
+
+## Monitoring
+
+1. Application logs are written to `pds_data_api.log`
+2. Monitor disk space for database growth
+3. Check log files for warnings and errors
+
+## Backup and Maintenance
+
+1. Regular database backup:
 ```bash
-curl "http://localhost:8000/items"
+sqlite3 pds_data.db ".backup 'backup.db'"
 ```
 
-## Development
+2. Log rotation:
+- Configure your system's logrotate or equivalent
+- Keep 30 days of logs by default
 
-This is a basic setup that uses an in-memory list to store data. For production use, consider:
+## Troubleshooting
 
-1. Adding a proper database (e.g., PostgreSQL, MongoDB)
-2. Implementing authentication and authorization
-3. Adding input validation and sanitization
-4. Implementing proper error handling
-5. Adding logging
-6. Setting up environment variables
-7. Adding tests
+1. Check the log file at `pds_data_api.log`
+2. Verify database connectivity
+3. Ensure all required ports are accessible
+4. Check file permissions
+
+## Support
+
+For production support, contact:
+- Email: support@example.com
+- Documentation: /docs (available when the server is running)
+
+## Security Updates
+
+- Subscribe to security notifications
+- Regularly update dependencies
+- Monitor for CVEs in dependencies
 
 ## License
 
-[MIT License](LICENSE) 
+Copyright (c) 2024. All rights reserved. 

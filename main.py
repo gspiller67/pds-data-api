@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from typing import List
 import uuid
@@ -14,10 +14,14 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 import base64
 import requests
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
+import os
 
-from models import Base, Connection, Config, TableColumn, ConnectionOptions
+from models import Base, Connection, Config, TableColumn, ConnectionOptions, SyncHistory
 from database import engine, get_db
 from pds_sync_service import PDSSyncService
+from qdrant_routes import router as qdrant_router
 
 # Configure logging
 logging.basicConfig(
@@ -31,12 +35,15 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+# Include Qdrant routes
+app.include_router(qdrant_router)
+
 # Store server start time
 server_start_time = time.time()
 
 # Mount static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="src/pds_data_api/static"), name="static")
+templates = Jinja2Templates(directory="src/pds_data_api/templates")
 
 # Add json_decode filter to Jinja2 environment
 def json_decode(value):
@@ -71,10 +78,12 @@ async def list_connections(request: Request, db: Session = Depends(get_db)):
     )
 
 @app.get("/connections/create")
-async def create_connection_form(request: Request):
+async def create_connection_form(request: Request, db: Session = Depends(get_db)):
+    # Get connection types
+    connection_types = db.query(ConnectionOptions).all()
     return templates.TemplateResponse(
         "connections/form.html",
-        {"request": request, "connection": None}
+        {"request": request, "connection": None, "connection_types": connection_types}
     )
 
 @app.post("/connections/create")
@@ -117,6 +126,13 @@ async def create_connection(
             missing_fields = [field for field in required_fields if field not in config_json]
             if missing_fields:
                 error_msg = f"Missing required fields for PDS connection: {', '.join(missing_fields)}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+        elif connection_type.lower() == 'qdrant':
+            required_fields = ['host', 'port']
+            missing_fields = [field for field in required_fields if field not in config_json]
+            if missing_fields:
+                error_msg = f"Missing required fields for Qdrant connection: {', '.join(missing_fields)}"
                 logger.error(error_msg)
                 raise ValueError(error_msg)
         
@@ -352,6 +368,16 @@ async def delete_connection(request: Request, connection_id: uuid.UUID, db: Sess
     if not connection:
         raise HTTPException(status_code=404, detail="Connection not found")
     
+    # Check if connection is being used by any PDS tables
+    source_tables = db.query(Config).filter(Config.source_connection_id == connection_id).count()
+    destination_tables = db.query(Config).filter(Config.destination_connection_id == connection_id).count()
+    
+    if source_tables > 0 or destination_tables > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete connection as it is being used by one or more PDS tables"
+        )
+    
     db.delete(connection)
     db.commit()
     
@@ -395,16 +421,18 @@ async def create_pds_table(
     page_size: int = Form(...),
     source_connection_id: uuid.UUID = Form(...),
     destination_connection_id: uuid.UUID = Form(...),
+    title: str = Form(None),
     db: Session = Depends(get_db)
 ):
     try:
         # Validate page size
         if page_size < 1 or page_size > 10000:
             raise ValueError("Page size must be between 1 and 10000")
-            
+        
         table = Config(
             table_name=table_name,
             config_name=table_name,  # Set config_name to be the same as table_name
+            title=title,
             source_connection_id=source_connection_id,
             destination_connection_id=destination_connection_id,
             active=True,
@@ -474,21 +502,23 @@ async def update_pds_table(
     page_size: int = Form(...),
     source_connection_id: uuid.UUID = Form(...),
     destination_connection_id: uuid.UUID = Form(...),
+    title: str = Form(None),
     db: Session = Depends(get_db)
 ):
     try:
         # Validate page size
         if page_size < 1 or page_size > 10000:
             raise ValueError("Page size must be between 1 and 10000")
-            
+        
         table = db.query(Config).filter(Config.id == table_id).first()
         if not table:
             raise HTTPException(status_code=404, detail="PDS Table not found")
-            
+        
         table.table_name = table_name
         table.source_connection_id = source_connection_id
         table.destination_connection_id = destination_connection_id
         table.page_size = page_size
+        table.title = title
         
         db.commit()
         
@@ -541,6 +571,73 @@ async def list_table_columns(request: Request, table_id: uuid.UUID, db: Session 
         {"request": request, "table": table}
     )
 
+@app.post("/pds-tables/{table_id}/columns/update")
+async def update_columns(table_id: uuid.UUID, request: Request, db: Session = Depends(get_db)):
+    try:
+        logger.info(f"Received update request for table_id: {table_id}")
+        
+        # Validate UUID format
+        try:
+            table_id = uuid.UUID(str(table_id))
+            logger.info(f"Validated table_id UUID: {table_id}")
+        except ValueError as e:
+            logger.error(f"Invalid UUID format: {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid table ID format")
+            
+        form_data = await request.form()
+        logger.info(f"Received form data: {dict(form_data)}")
+        
+        pds_table = db.query(Config).filter(Config.id == table_id).first()
+        if not pds_table:
+            logger.error(f"Table not found with ID: {table_id}")
+            raise HTTPException(status_code=404, detail="Table not found")
+        
+        logger.info(f"Found table: {pds_table.table_name} with {len(pds_table.columns)} columns")
+        
+        # Update all columns
+        for column in pds_table.columns:
+            active_key = f"active_{column.id}"
+            primary_key = f"primary_key_{column.id}"
+            name_key = f"name_{column.id}"
+            type_key = f"type_{column.id}"
+            
+            logger.info(f"Processing column {column.column_name} (ID: {column.id})")
+            logger.info(f"Form keys for column: active={active_key}, primary={primary_key}, name={name_key}, type={type_key}")
+            
+            # Update column properties if they exist in the form data
+            if active_key in form_data:
+                old_active = column.active
+                column.active = form_data[active_key] == "on"
+                logger.info(f"Updated active status: {old_active} -> {column.active}")
+            
+            if primary_key in form_data:
+                old_primary = column.is_primary_key
+                column.is_primary_key = form_data[primary_key] == "on"
+                logger.info(f"Updated primary key status: {old_primary} -> {column.is_primary_key}")
+            
+            if name_key in form_data:
+                old_name = column.column_name
+                column.column_name = form_data[name_key]
+                logger.info(f"Updated column name: {old_name} -> {column.column_name}")
+            
+            if type_key in form_data:
+                old_type = column.data_type
+                column.data_type = form_data[type_key]
+                logger.info(f"Updated data type: {old_type} -> {column.data_type}")
+        
+        try:
+            db.commit()
+            logger.info("Successfully committed all column updates")
+        except Exception as commit_error:
+            logger.error(f"Error committing changes: {str(commit_error)}")
+            db.rollback()
+            raise
+        
+        return RedirectResponse(url=f"/pds-tables/{table_id}/columns", status_code=303)
+    except Exception as e:
+        logger.error(f"Error updating columns: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/pds-tables/{table_id}/columns/create")
 async def create_table_column_form(request: Request, table_id: uuid.UUID, db: Session = Depends(get_db)):
     table = db.query(Config).filter(Config.id == table_id).first()
@@ -558,6 +655,7 @@ async def create_table_column(
     column_name: str = Form(...),
     data_type: str = Form(...),
     active: bool = Form(False),
+    is_primary_key: bool = Form(False),
     db: Session = Depends(get_db)
 ):
     try:
@@ -569,7 +667,8 @@ async def create_table_column(
             pds_table_id=table_id,
             column_name=column_name,
             data_type=data_type,
-            active=active
+            active=active,
+            is_primary_key=is_primary_key
         )
         db.add(column)
         db.commit()
@@ -599,6 +698,7 @@ async def update_table_column(
     column_name: str = Form(...),
     data_type: str = Form(...),
     active: bool = Form(False),
+    is_primary_key: bool = Form(False),
     db: Session = Depends(get_db)
 ):
     try:
@@ -609,6 +709,7 @@ async def update_table_column(
         column.column_name = column_name
         column.data_type = data_type
         column.active = active
+        column.is_primary_key = is_primary_key
         
         db.commit()
         
@@ -782,6 +883,14 @@ async def sync_pds_table(
             status_code=303,
             headers={"X-Message": message}
         )
+    except ValueError as ve:
+        # Handle specific error messages (like rate limits)
+        logger.error(f"Validation error during sync: {str(ve)}")
+        return RedirectResponse(
+            url=f"/pds-tables/{table_id}/columns",
+            status_code=303,
+            headers={"X-Message": f"Error: {str(ve)}"}
+        )
     except Exception as e:
         logger.error(f"Error syncing PDS table: {str(e)}")
         return RedirectResponse(
@@ -838,8 +947,8 @@ async def test_pds_connection(
         # Initialize sync service
         sync_service = PDSSyncService(db, table_id)
         
-        # Run the sync process
-        response_data = sync_service.run_sync()
+        # Test the connection
+        response_data = sync_service.test_connection()
         
         # Return the raw response
         return templates.TemplateResponse(
@@ -874,11 +983,11 @@ async def refresh_pds_metadata(
         sync_service = PDSSyncService(db, table_id)
         
         # Get the base URL and construct the metadata refresh URL
-        base_url = sync_service.pds_config['url']
+        base_url = sync_service.source_config['url']
         refresh_url = f"{base_url}rest-service/dataservice/metadata/refresh?configCode=ds_unifier"
         
         # Get auth header
-        auth_string = f"{sync_service.pds_config['username']}:{sync_service.pds_config['password']}"
+        auth_string = f"{sync_service.source_config['username']}:{sync_service.source_config['password']}"
         encoded_auth = base64.b64encode(auth_string.encode()).decode()
         headers = {
             "Content-Type": "application/json",
@@ -886,13 +995,25 @@ async def refresh_pds_metadata(
         }
         
         # Make the request to refresh metadata
-        response = requests.get(
+        response = requests.post(
             refresh_url,
             headers=headers,
             timeout=30
         )
         
-        if response.status_code != 200:
+        if response.status_code == 202:
+            # This is actually a success case - the request is being processed
+            logger.info("Metadata refresh initiated successfully")
+            return templates.TemplateResponse(
+                "pds_tables/columns.html",
+                {
+                    "request": request,
+                    "table": db.query(Config).filter(Config.id == table_id).first(),
+                    "flash_message": "Metadata refresh initiated. Status will be updated automatically.",
+                    "flash_type": "success"
+                }
+            )
+        elif response.status_code != 200:
             raise ValueError(f"Metadata refresh failed with status {response.status_code}: {response.text}")
             
         # Return success message
@@ -928,11 +1049,11 @@ async def poll_metadata_status(
         sync_service = PDSSyncService(db, table_id)
         
         # Get the base URL and construct the status URL
-        base_url = sync_service.pds_config['url']
+        base_url = sync_service.source_config['url']
         status_url = f"{base_url}rest-service/v1/config/status/seed/ds_unifier"
         
         # Get auth header
-        auth_string = f"{sync_service.pds_config['username']}:{sync_service.pds_config['password']}"
+        auth_string = f"{sync_service.source_config['username']}:{sync_service.source_config['password']}"
         encoded_auth = base64.b64encode(auth_string.encode()).decode()
         headers = {
             "Content-Type": "application/json",
@@ -964,8 +1085,235 @@ async def poll_metadata_status(
 
 # Root route
 @app.get("/")
-async def root(request: Request):
+async def root(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request}
-    ) 
+        {
+            "request": request,
+            "pds_tables_count": db.query(Config).count(),
+            "connections_count": db.query(Connection).count(),
+            "sync_history_count": db.query(SyncHistory).count()
+        }
+    )
+
+@app.get("/sync-history")
+async def list_sync_history(request: Request, db: Session = Depends(get_db)):
+    # Get all tables with their latest sync history
+    tables = db.query(Config).all()
+    table_history = []
+    
+    for table in tables:
+        latest_sync = db.query(SyncHistory).filter(
+            SyncHistory.pds_table_id == table.id
+        ).order_by(SyncHistory.start_time.desc()).first()
+        
+        table_history.append({
+            "table": table,
+            "latest_sync": latest_sync
+        })
+    
+    return templates.TemplateResponse(
+        "sync_history/list.html",
+        {
+            "request": request,
+            "table_history": table_history
+        }
+    )
+
+@app.get("/sync-history/{table_id}")
+async def view_table_sync_history(
+    request: Request,
+    table_id: uuid.UUID,
+    db: Session = Depends(get_db)
+):
+    # Get table details
+    table = db.query(Config).filter(Config.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    # Get sync history for this table
+    sync_history = db.query(SyncHistory).filter(
+        SyncHistory.pds_table_id == table_id
+    ).order_by(SyncHistory.start_time.desc()).all()
+    
+    return templates.TemplateResponse(
+        "sync_history.html",
+        {
+            "request": request,
+            "table": table,
+            "sync_history": sync_history
+        }
+    )
+
+@app.post("/sync-history/clear")
+async def clear_sync_history(db: Session = Depends(get_db)):
+    try:
+        db.query(SyncHistory).delete()
+        db.commit()
+        return {"status": "success", "message": "Sync history cleared successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.post("/pds-tables/{table_id}/copy")
+async def copy_pds_table(request: Request, table_id: uuid.UUID, db: Session = Depends(get_db)):
+    try:
+        # Fetch the original table
+        original_table = db.query(Config).filter(Config.id == table_id).first()
+        if not original_table:
+            raise HTTPException(status_code=404, detail="PDS Table not found")
+
+        # Create a new table config (with a new name)
+        new_table = Config(
+            table_name=f"Copy of {original_table.table_name}",
+            config_name=f"Copy of {original_table.config_name}",
+            source_connection_id=original_table.source_connection_id,
+            destination_connection_id=original_table.destination_connection_id,
+            active=original_table.active,
+            page_size=original_table.page_size
+        )
+        db.add(new_table)
+        db.flush()  # Get new_table.id
+
+        # Copy columns
+        original_columns = db.query(TableColumn).filter(TableColumn.pds_table_id == table_id).all()
+        for col in original_columns:
+            new_col = TableColumn(
+                pds_table_id=new_table.id,
+                column_name=col.column_name,
+                data_type=col.data_type,
+                active=col.active,
+                is_primary_key=col.is_primary_key
+            )
+            db.add(new_col)
+
+        db.commit()
+        # Redirect to tables list with a flash message
+        response = RedirectResponse(url="/pds-tables", status_code=303)
+        response.set_cookie("flash_message", "Table copied successfully!", max_age=3)
+        response.set_cookie("flash_type", "success", max_age=3)
+        return response
+    except Exception as e:
+        logger.error(f"Error copying table: {str(e)}")
+        response = RedirectResponse(url="/pds-tables", status_code=303)
+        response.set_cookie("flash_message", f"Error copying table: {str(e)}", max_age=3)
+        response.set_cookie("flash_type", "danger", max_age=3)
+        return response
+
+@app.get("/pds-tables/{table_id}/qdrant-view", response_class=HTMLResponse)
+async def view_qdrant_data(
+    table_id: uuid.UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    """View Qdrant data for a table with Qdrant destination."""
+    # Get table configuration
+    table = db.query(Config).filter(Config.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    # Get destination connection
+    dest_connection = db.query(Connection).filter(
+        Connection.id == table.destination_connection_id
+    ).first()
+    
+    if not dest_connection or dest_connection.connection_type.name.lower() != "qdrant":
+        raise HTTPException(status_code=400, detail="Table is not configured with Qdrant destination")
+    
+    # Parse destination config
+    dest_config = json.loads(dest_connection.connection_config.decode())
+    
+    # Initialize Qdrant client with only essential parameters
+    host = dest_config.get('host', 'localhost')
+    port = dest_config.get('port', 6333)
+    api_key = dest_config.get('api_key')
+    
+    # Construct URL
+    url = f"http://{host}:{port}"
+    
+    # Initialize with URL and API key only
+    qdrant_client = QdrantClient(
+        url=url,
+        api_key=api_key
+    )
+    
+    # Get collection info
+    collection_name = table.table_name.lower()
+    try:
+        collection_info = qdrant_client.get_collection(collection_name)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Collection not found: {str(e)}")
+    
+    # Get points
+    points = qdrant_client.scroll(
+        collection_name=collection_name,
+        limit=limit,
+        offset=offset
+    )
+    
+    return templates.TemplateResponse(
+        "pds_tables/qdrant_view.html",
+        {
+            "request": request,
+            "table": table,
+            "collection_info": collection_info,
+            "points": points[0],  # points[0] contains the actual points
+            "limit": limit,
+            "offset": offset
+        }
+    )
+
+@app.post("/tables/{table_id}")
+async def update_table(table_id: uuid.UUID, request: Request, db: Session = Depends(get_db)):
+    form_data = await request.form()
+    
+    table = db.query(Config).filter(Config.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    # Update table fields
+    table.table_name = form_data.get("table_name")
+    table.source_connection_id = uuid.UUID(form_data.get("source_connection_id"))
+    table.destination_connection_id = uuid.UUID(form_data.get("destination_connection_id"))
+    table.page_size = int(form_data.get("page_size"))
+    table.active = form_data.get("active") == "on"
+    
+    # Update Qdrant batch size if destination is Qdrant
+    if table.destination_connection and table.destination_connection.connection_type.name.lower() == "qdrant":
+        table.qdrant_batch_size = int(form_data.get("qdrant_batch_size", 100))
+    
+    db.commit()
+    
+    return HTMLResponse(render_table_edit_form(table_id, db))
+
+@app.get("/tables/{table_id}/destination_changed")
+async def destination_changed(
+    request: Request,
+    table_id: uuid.UUID,
+    destination_connection_id: uuid.UUID,
+    db: Session = Depends(get_db)
+):
+    # Get the destination connection
+    destination_connection = db.query(Connection).filter(Connection.id == destination_connection_id).first()
+    
+    # Get the table if it exists
+    table = db.query(Config).filter(Config.id == table_id).first()
+    
+    # Check if the destination is Qdrant
+    is_qdrant = destination_connection and destination_connection.connection_type.name.lower() == "qdrant"
+    
+    # Return the Qdrant batch size field if needed
+    if is_qdrant:
+        return templates.TemplateResponse(
+            "pds_tables/qdrant_batch_size.html",
+            {
+                "request": request,
+                "table": table,
+                "qdrant_batch_size": table.qdrant_batch_size if table else 100
+            }
+        )
+    return "" 

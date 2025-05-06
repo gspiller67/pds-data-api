@@ -1,0 +1,17 @@
+include LICENSE
+include README.md
+include requirements.txt
+include pyproject.toml
+include alembic.ini
+
+recursive-include src/pds_data_api/templates *
+recursive-include src/pds_data_api/static *
+recursive-include migrations *
+
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude *.pyo
+global-exclude .git
+global-exclude .env
+global-exclude *.db
+global-exclude secrets.json 

@@ -11,22 +11,22 @@
 </div>
 
 <div class="alert alert-info mb-4">
-    <h4 class="alert-heading">Payload Information</h4>
-    <p>This is the JSON payload that will be used for the PDS sync process. It includes:</p>
-    <ul>
-        <li>Table configuration</li>
-        <li>Source connection details</li>
-        <li>Destination connection details</li>
-        <li>Active columns configuration</li>
-    </ul>
+    <h4 class="alert-heading">PDS API Information</h4>
+    <p>This page shows the PDS API request payload that will be sent to the server.</p>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">JSON Payload</h5>
-    </div>
-    <div class="card-body">
-        <pre class="bg-light p-3 rounded"><code>{{ payload }}</code></pre>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Request Payload</h5>
+            </div>
+            <div class="card-body">
+                <div style="max-height: 500px; overflow-y: auto;">
+                    <pre class="bg-light p-3 rounded mb-0"><code>{{ pds_payload }}</code></pre>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

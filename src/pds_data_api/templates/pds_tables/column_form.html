@@ -31,14 +31,20 @@
             
             <div class="mb-3">
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="active" name="active" {{ 'checked' if column and column.active else '' }}>
-                    <label class="form-check-label" for="active">
-                        Active
-                    </label>
+                    <input type="checkbox" class="form-check-input" id="active" name="active" {{ 'checked' if column and column.active else '' }}>
+                    <label class="form-check-label" for="active">Active</label>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="is_primary_key" name="is_primary_key" {{ 'checked' if column and column.is_primary_key else '' }}>
+                    <label class="form-check-label" for="is_primary_key">Primary Key</label>
+                    <div class="form-text">Mark this column as part of the table's primary key.</div>
                 </div>
             </div>
             
-            <button type="submit" class="btn btn-primary">{{ "Update" if column else "Add" }} Column</button>
+            <button type="submit" class="btn btn-primary">{{ "Update" if column else "Create" }} Table Column</button>
         </form>
     </div>
 </div>

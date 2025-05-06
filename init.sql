@@ -1,0 +1,82 @@
+-- Create tables if they don't exist
+CREATE TABLE IF NOT EXISTS connection_options (
+    id UUID NOT NULL PRIMARY KEY,
+    name VARCHAR NOT NULL UNIQUE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS connections (
+    id UUID NOT NULL PRIMARY KEY,
+    connection_name VARCHAR NOT NULL,
+    connection_description VARCHAR,
+    connection_config BYTEA NOT NULL,
+    connection_type_id UUID NOT NULL REFERENCES connection_options(id),
+    direction BOOLEAN NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS pds_tables (
+    id UUID NOT NULL PRIMARY KEY,
+    config_name VARCHAR NOT NULL,
+    source_connection_id UUID NOT NULL REFERENCES connections(id),
+    destination_connection_id UUID NOT NULL REFERENCES connections(id),
+    table_name VARCHAR NOT NULL,
+    title VARCHAR,
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS table_columns (
+    id UUID NOT NULL PRIMARY KEY,
+    pds_table_id UUID NOT NULL REFERENCES pds_tables(id),
+    column_name VARCHAR NOT NULL,
+    data_type VARCHAR NOT NULL,
+    active BOOLEAN DEFAULT true,
+    is_primary_key BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS sync_history (
+    sync_guid UUID NOT NULL PRIMARY KEY,
+    pds_table_id UUID NOT NULL REFERENCES pds_tables(id),
+    start_time TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    end_time TIMESTAMP WITHOUT TIME ZONE,
+    total_columns INTEGER,
+    total_updates INTEGER,
+    total_creates INTEGER,
+    status VARCHAR NOT NULL,
+    error_message VARCHAR,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS qdrant_collection_configs (
+    id UUID NOT NULL PRIMARY KEY,
+    name VARCHAR NOT NULL UNIQUE,
+    vector_size INTEGER NOT NULL,
+    distance VARCHAR NOT NULL,
+    on_disk_payload BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS qdrant_points (
+    id UUID NOT NULL PRIMARY KEY,
+    collection_id UUID NOT NULL REFERENCES qdrant_collection_configs(id) ON DELETE CASCADE,
+    point_id VARCHAR NOT NULL,
+    vector FLOAT[] NOT NULL,
+    payload JSONB,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE,
+    UNIQUE (collection_id, point_id)
+); 

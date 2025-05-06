@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}{{ table.table_name }} - Sync History{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ table.table_name }} - Sync History</h2>
+    <div>
+        <a href="/sync-history" class="btn btn-secondary">Back to All Tables</a>
+        <a href="/pds-tables/{{ table.id }}/columns" class="btn btn-primary">View Table</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Tables</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="/sync-history" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    All Tables
+                    <i class="bi bi-arrow-right"></i>
+                </a>
+                <a href="/sync-history/{{ table.id }}" class="list-group-item list-group-item-action active">
+                    {{ table.table_name }}
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Sync History</h5>
+            </div>
+            <div class="card-body">
+                {% if sync_history %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Start Time</th>
+                                <th>Finish Time</th>
+                                <th>Duration</th>
+                                <th>Columns</th>
+                                <th>Updates</th>
+                                <th>Creates</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sync in sync_history %}
+                            <tr>
+                                <td>{{ sync.start_time.strftime('%b %d, %Y') }}</td>
+                                <td>{{ sync.start_time.strftime('%I:%M %p') }}</td>
+                                <td>
+                                    {% if sync.end_time %}
+                                    {{ sync.end_time.strftime('%I:%M %p') }}
+                                    {% else %}
+                                    <span class="text-muted">In Progress</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if sync.end_time %}
+                                    {{ (sync.end_time - sync.start_time).total_seconds()|round(2) }}s
+                                    {% else %}
+                                    <span class="text-muted">In Progress</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ sync.total_columns }}</td>
+                                <td>{{ sync.total_updates }}</td>
+                                <td>{{ sync.total_creates }}</td>
+                                <td>
+                                    <span class="badge {% if sync.status == 'COMPLETED' %}bg-success{% elif sync.status == 'FAILED' %}bg-danger{% else %}bg-warning{% endif %}">
+                                        {{ sync.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% if sync.error_message %}
+                            <tr>
+                                <td colspan="8" class="bg-light">
+                                    <strong>Error:</strong> {{ sync.error_message }}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No sync history found for this table.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

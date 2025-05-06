@@ -1,0 +1,55 @@
+services:
+  pds_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app/src
+      - pds_logs:/app/logs
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://pdsapi:pdsapi@db:5432/pds_data_api
+      PDS_HOST: 0.0.0.0
+      PDS_PORT: 8000
+      SECRET_KEY: $$(openssl rand -hex 32)
+      WORKERS: 4
+      LOG_LEVEL: WARNING
+      LOG_FILE: /app/logs/pds_data_api.log
+    depends_on:
+      db:
+        condition: service_healthy
+        required: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: pdsapi
+      POSTGRES_PASSWORD: pdsapi
+      POSTGRES_DB: pds_data_api
+      PGUSER: pdsapi
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./migrations:/docker-entrypoint-initdb.d/migrations
+      - ./pds_data_backup.sql:/docker-entrypoint-initdb.d/pds_data_backup.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pdsapi -d pds_data_api"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  pds_logs:
+    name: pds_logs_volume 

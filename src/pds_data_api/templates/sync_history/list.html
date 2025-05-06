@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Sync History{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Sync History</h2>
+    <a href="/pds-tables" class="btn btn-secondary">Back to PDS Tables</a>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Tables</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for item in table_history %}
+                <a href="/sync-history/{{ item.table.id }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    {{ item.table.table_name }}
+                    {% if item.latest_sync %}
+                    <span class="badge {% if item.latest_sync.status == 'COMPLETED' %}bg-success{% elif item.latest_sync.status == 'FAILED' %}bg-danger{% else %}bg-warning{% endif %}">
+                        {{ item.latest_sync.status }}
+                    </span>
+                    {% endif %}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Select a table to view sync history</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Click on a table in the left panel to view its sync history.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

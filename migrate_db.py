@@ -1,5 +1,8 @@
-from sqlalchemy import text
-from database import engine
+from sqlalchemy import text, create_engine, Column, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from database import Base, engine
+from models import TableColumn
 import logging
 
 # Configure logging
@@ -23,6 +26,21 @@ def migrate_db():
                         ) THEN
                             ALTER TABLE "TABLECOLLUMNS" 
                             ADD COLUMN data_type VARCHAR(50) NOT NULL DEFAULT 'string';
+                        END IF;
+                    END $$;
+                """))
+                
+                # Add is_primary_key column if it doesn't exist
+                connection.execute(text("""
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name = 'TABLECOLLUMNS' 
+                            AND column_name = 'is_primary_key'
+                        ) THEN
+                            ALTER TABLE "TABLECOLLUMNS" 
+                            ADD COLUMN is_primary_key BOOLEAN DEFAULT FALSE;
                         END IF;
                     END $$;
                 """))

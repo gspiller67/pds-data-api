@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if config %}
+        Edit PDS Table
+    {% else %}
+        New PDS Table
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        {% if config %}
+                            Edit PDS Table
+                        {% else %}
+                            New PDS Table
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{% if config %}/pds-tables/{{ config.id }}{% else %}/pds-tables{% endif %}">
+                        <div class="mb-3">
+                            <label for="config_name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="config_name" name="config_name" value="{{ config.config_name if config else '' }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="source_connection_id" class="form-label">Source Connection</label>
+                            <select class="form-select" id="source_connection_id" name="source_connection_id" required>
+                                <option value="">Select a source connection</option>
+                                {% for connection in connections %}
+                                    {% if connection.direction %}
+                                    <option value="{{ connection.id }}" {% if config and config.source_connection_id == connection.id %}selected{% endif %}>
+                                        {{ connection.connection_name }}
+                                    </option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="destination_connection_id" class="form-label">Destination Connection</label>
+                            <select class="form-select" id="destination_connection_id" name="destination_connection_id" required>
+                                <option value="">Select a destination connection</option>
+                                {% for connection in connections %}
+                                    {% if not connection.direction %}
+                                    <option value="{{ connection.id }}" {% if config and config.destination_connection_id == connection.id %}selected{% endif %}>
+                                        {{ connection.connection_name }}
+                                    </option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="table_name" class="form-label">Table Name</label>
+                            <input type="text" class="form-control" id="table_name" name="table_name" value="{{ config.table_name if config else '' }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title (Optional)</label>
+                            <input type="text" class="form-control" id="title" name="title" value="{{ config.title if config else '' }}">
+                            <div class="form-text">A friendly name to display in the UI. If not provided, the name will be used.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="page_size" class="form-label">Page Size</label>
+                            <input type="number" class="form-control" id="page_size" name="page_size" value="{{ config.page_size if config else 1000 }}" min="1" max="10000" required>
+                            <div class="form-text">Number of records to fetch per page (1-10000)</div>
+                        </div>
+                        <div class="mb-3" id="qdrantBatchSizeGroup" style="display: none;">
+                            <label for="qdrant_batch_size" class="form-label">Qdrant Batch Size</label>
+                            <input type="number" class="form-control" id="qdrant_batch_size" name="qdrant_batch_size" value="{{ config.qdrant_batch_size if config else 100 }}" required>
+                            <div class="form-text">Number of records to process in each batch for Qdrant sync</div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="/pds-tables" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                {% if config %}
+                                    Update
+                                {% else %}
+                                    Create
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const destinationSelect = document.getElementById('destination_connection_id');
+    const qdrantBatchSizeGroup = document.getElementById('qdrantBatchSizeGroup');
+    const qdrantBatchSizeInput = document.getElementById('qdrant_batch_size');
+    
+    // Store connection types in a data attribute
+    const connectionTypes = {
+        {% for connection in connections %}
+            "{{ connection.id }}": "{{ connection.connection_type.name }}",
+        {% endfor %}
+    };
+    
+    function updateQdrantBatchSizeVisibility() {
+        const selectedConnectionId = destinationSelect.value;
+        const isQdrant = connectionTypes[selectedConnectionId] === 'Qdrant';
+        
+        qdrantBatchSizeGroup.style.display = isQdrant ? 'block' : 'none';
+        qdrantBatchSizeInput.required = isQdrant;
+        
+        if (!isQdrant) {
+            qdrantBatchSizeInput.value = '100'; // Reset to default when hidden
+        }
+    }
+    
+    // Initial check
+    updateQdrantBatchSizeVisibility();
+    
+    // Update on change
+    destinationSelect.addEventListener('change', updateQdrantBatchSizeVisibility);
+});
+</script>
+{% endblock %} 

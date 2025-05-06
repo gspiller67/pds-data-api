@@ -26,7 +26,11 @@
                             <label for="connection_type" class="form-label">Connection Type</label>
                             <select class="form-select" id="connection_type" name="connection_type" required>
                                 <option value="">Select a connection type</option>
-                                <option value="PDS" {{ 'selected' if (form_data and form_data.connection_type == 'PDS') or (connection and connection.connection_type.name == 'PDS') else '' }}>PDS</option>
+                                {% for type in connection_types %}
+                                <option value="{{ type.name }}" {{ 'selected' if (form_data and form_data.connection_type == type.name) or (connection and connection.connection_type.name == type.name) else '' }}>
+                                    {{ type.name }}
+                                </option>
+                                {% endfor %}
                             </select>
                         </div>
                         
@@ -38,8 +42,8 @@
                         <div class="mb-3">
                             <label for="direction" class="form-label">Direction</label>
                             <select class="form-select" id="direction" name="direction" required>
-                                <option value="true" {{ 'selected' if (form_data and form_data.direction) or (connection and connection.direction) else '' }}>Inbound</option>
-                                <option value="false" {{ 'selected' if (form_data and not form_data.direction) or (connection and not connection.direction) else '' }}>Outbound</option>
+                                <option value="true" {{ 'selected' if (form_data and form_data.direction) or (connection and connection.direction) else '' }}>Source</option>
+                                <option value="false" {{ 'selected' if (form_data and not form_data.direction) or (connection and not connection.direction) else '' }}>Destination</option>
                             </select>
                         </div>
                         
@@ -53,22 +57,41 @@
 </div>
 
 <script>
-// Get initial state from data attribute
-const isExistingConnection = document.getElementById('connection-form').dataset.isExisting === 'true';
-
 document.getElementById('connection_type').addEventListener('change', function() {
-    // Only set default config for new connections
-    if (!isExistingConnection) {
-        var configTextarea = document.getElementById('connection_config');
-        if (this.value === 'PDS') {
-            configTextarea.value = JSON.stringify({
-                url: '',
-                username: '',
-                password: ''
-            }, null, 2);
-        } else {
-            configTextarea.value = '{}';
-        }
+    var configTextarea = document.getElementById('connection_config');
+    var selectedType = this.value.toLowerCase();
+    
+    if (selectedType === 'pds') {
+        configTextarea.value = JSON.stringify({
+            url: '',
+            username: '',
+            password: ''
+        }, null, 2);
+    } else if (selectedType === 'postgresql') {
+        configTextarea.value = JSON.stringify({
+            host: 'localhost',
+            port: 5432,
+            database: 'your_database_name',
+            username: 'postgres',
+            password: ''
+        }, null, 2);
+    } else if (selectedType === 'qdrant') {
+        configTextarea.value = JSON.stringify({
+            host: 'localhost',
+            port: 6333,
+            api_key: '',
+            https: false
+        }, null, 2);
+    } else if (selectedType === 'oracle') {
+        configTextarea.value = JSON.stringify({
+            host: 'localhost',
+            port: 1521,
+            service_name: 'your_service_name',
+            username: '',
+            password: ''
+        }, null, 2);
+    } else {
+        configTextarea.value = '{}';
     }
 });
 </script>

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Sync History{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Sync History - {{ table.table_name }}</h2>
+    <button class="btn btn-danger" onclick="clearSyncHistory()">Clear History</button>
+</div>
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>Start Date</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th>Created</th>
+                <th>Error Message</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sync in sync_history %}
+            <tr>
+                <td class="text-nowrap">{{ sync.start_time.astimezone().strftime('%Y-%m-%d') if sync.start_time else 'N/A' }}</td>
+                <td class="text-nowrap">{{ sync.start_time.astimezone().strftime('%I:%M:%S %p') if sync.start_time else 'N/A' }}</td>
+                <td class="text-nowrap">{{ sync.end_time.astimezone().strftime('%I:%M:%S %p') if sync.end_time else 'N/A' }}</td>
+                <td>
+                    {% if sync.status and sync.status.lower() == 'completed' %}
+                        <span class="badge bg-success">Completed</span>
+                    {% elif sync.status and sync.status.lower() == 'failed' %}
+                        <span class="badge bg-danger">Failed</span>
+                    {% elif sync.status and sync.status.lower() == 'in_progress' %}
+                        <span class="badge bg-warning">In Progress</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ sync.status }}</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">{{ "{:,}".format(sync.total_updates or 0) }}</td>
+                <td class="text-end">{{ "{:,}".format(sync.total_creates or 0) }}</td>
+                <td>{{ sync.error_message or 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .table {
+        font-size: 0.9rem;
+    }
+    .table th {
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    .badge {
+        font-size: 0.85rem;
+        padding: 0.4em 0.7em;
+    }
+    .bg-success {
+        background-color: #198754 !important;
+        color: white !important;
+    }
+    .bg-danger {
+        background-color: #dc3545 !important;
+        color: white !important;
+    }
+    .bg-warning {
+        background-color: #ffc107 !important;
+        color: black !important;
+    }
+    .bg-secondary {
+        background-color: #6c757d !important;
+        color: white !important;
+    }
+    /* Make date and time columns larger */
+    td:nth-child(1),
+    td:nth-child(2),
+    td:nth-child(3) {
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    /* Right align numeric columns */
+    td:nth-child(5),
+    td:nth-child(6) {
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+</style>
+
+<script>
+    function clearSyncHistory() {
+        if (confirm('Are you sure you want to clear all sync history? This action cannot be undone.')) {
+            fetch('/sync-history/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Error clearing sync history');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error clearing sync history');
+            });
+        }
+    }
+</script>
+{% endblock %} 

@@ -39,12 +39,15 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/pds-tables">PDS Tables</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/sync-history">Sync History</a>
+                    </li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container mt-2">
         {% if request.cookies.get('flash_success') %}
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 {{ request.cookies.get('flash_success') }}
@@ -61,7 +64,7 @@
         <div class="row">
             <!-- Sidebar -->
             <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
-                <div class="position-sticky pt-3">
+                <div class="position-sticky pt-2">
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">
@@ -78,13 +81,18 @@
                                 <i class="bi bi-table"></i> PDS Tables
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'sync-history' in request.url.path %}active{% endif %}" href="/sync-history">
+                                <i class="bi bi-clock-history"></i> Sync History
+                            </a>
+                        </li>
                     </ul>
                 </div>
             </div>
 
             <!-- Main content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-2">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-2 pb-2 mb-2 border-bottom">
                     <h1 class="h2">{% block header %}{% endblock %}</h1>
                 </div>
 
