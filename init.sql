@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS pds_tables (
     destination_connection_id UUID NOT NULL REFERENCES connections(id),
     table_name VARCHAR NOT NULL,
     title VARCHAR,
+    page_size INTEGER DEFAULT 1000,
+    qdrant_batch_size INTEGER DEFAULT 100,
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -45,15 +47,16 @@ CREATE TABLE IF NOT EXISTS table_columns (
 );
 
 CREATE TABLE IF NOT EXISTS sync_history (
-    sync_guid UUID NOT NULL PRIMARY KEY,
+    id UUID NOT NULL PRIMARY KEY,
     pds_table_id UUID NOT NULL REFERENCES pds_tables(id),
+    sync_guid UUID NOT NULL,
     start_time TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     end_time TIMESTAMP WITHOUT TIME ZONE,
-    total_columns INTEGER,
+    total_columns INTEGER NOT NULL,
     total_updates INTEGER,
     total_creates INTEGER,
-    status VARCHAR NOT NULL,
-    error_message VARCHAR,
+    status VARCHAR(50) NOT NULL,
+    error_message VARCHAR(1000),
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
